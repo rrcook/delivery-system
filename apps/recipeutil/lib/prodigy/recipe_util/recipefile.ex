@@ -4,6 +4,13 @@ defmodule RecipeUtil.File do
 
   alias Prodigy.Core.Data.{Object, Repo}
 
+  @header <<0xA1, 0xC8, 0xC0, 0xC0, 0xD2, 0xA3, 0xC4, 0xC0, 0xD2, 0xC0, 0xBE, 0xC0, 0xC8, 0xB3, 0xC2,
+  0xC6, 0xC2, 0xDE, 0xF8, 0xF1, 0xA2, 0xF0, 0xC0, 0xC0, 0xC1, 0xEA, 0xB8, 0xC0, 0xC0, 0xD8,
+  0xDB, 0xF9, 0xE8, 0xA4, 0xC2, 0xC4, 0xDF, 0xBE, 0xD0,
+  0x0F>>
+
+  @number_of_pages 4
+
   @subst_map %{
     "Body" =>
         "This is line 1 big that has been changed" <>
@@ -12,10 +19,7 @@ defmodule RecipeUtil.File do
         <<0x0D, 0x0A, 0x20>> <>
         "This is a longer line 3",
     "HL" =>
-    <<0xA1, 0xC8, 0xC0, 0xC0, 0xD2, 0xA3, 0xC4, 0xC0, 0xD2, 0xC0, 0xBE, 0xC0, 0xC8, 0xB3, 0xC2,
-    0xC6, 0xC2, 0xDE, 0xF8, 0xF1, 0xA2, 0xF0, 0xC0, 0xC0, 0xC1, 0xEA, 0xB8, 0xC0, 0xC0, 0xD8,
-    0xDB, 0xF9, 0xE8, 0xA4, 0xC2, 0xC4, 0xDF, 0xBE, 0xD0,
-    0x0F>> <>
+    @header <>
        "      This is a headline for page 2 of 3",
     "NextHL" => "Go to next page"
   }
@@ -36,7 +40,7 @@ defmodule RecipeUtil.File do
     dest = Map.get(args, :dest)
 
     with {:ok, data} <- File.read(source) do
-      data_with_page_info = NewsHeadlines.page_setup(data, 1, 2)
+      data_with_page_info = page_setup(data, 1, 2)
 
       if dest do
         File.write!(dest, data_with_page_info)
@@ -50,6 +54,8 @@ defmodule RecipeUtil.File do
     source = Map.get(args, :source)
     # dest = Map.get(args, :dest)
     dest = "NH00A000B  "
+
+    IO.inspect("in news setup")
 
     recipe_object =
       if String.printable?(source) do
@@ -70,9 +76,28 @@ defmodule RecipeUtil.File do
       filename = "#{base}.#{extension}"
 
       # future magic here, make a news headline map
-      #
+      news_feed = Application.fetch_env!(:recipeutil, :headline_news)
+      # news_feed = "https://memeorandum.com/feed.xml"
+      news_stories = NewsFeeds.get_stories(news_feed, @number_of_pages)
+      IO.inspect("got news stories, #{news_stories}")
 
-      create_one_page(contents, @subst_map, filename, dest, 2, 3 )
+      num_items = length(news_stories)
+      with_indices = Enum.zip(1..num_items, news_stories)
+
+      Enum.map(with_indices, fn item ->
+        {index, [hl, body]} = item
+
+        page_map = %{
+          "Body" =>
+              body,
+          "HL" =>
+          @header <>
+             hl,
+          "NextHL" => "Go to next page"
+        }
+        create_one_page(contents, page_map, filename, dest, index, num_items )
+      end)
+
     end
   end
 
@@ -107,11 +132,13 @@ defmodule RecipeUtil.File do
     recipe_bytes = RecipeType.generate(recipe)
 
     # write to file so we can run cook on it
-    cook_location = Application.fetch_env!(:recipe, :cook_location)
+    cook_location = Application.fetch_env!(:recipeutil, :cook_location)
     rf_location = Path.join([cook_location, filename])
     File.write!(rf_location, recipe_bytes)
+    # for debugging
+    File.write!(rf_location <> ".#{current_page}", recipe_bytes)
 
-    use_emu2 = true
+    use_emu2 = false
 
     body_filename = if use_emu2 do
       # run cook on the file
@@ -123,13 +150,18 @@ defmodule RecipeUtil.File do
       )
       Path.join(cook_location, "nh00a000.bdy")
     else
-      dosbox_location = Application.fetch_env!(:recipe, :dosbox_location)
-      # cook_location = Application.fetch_env!(:recipe, cook_location)
+      dosbox_location = Application.fetch_env!(:recipeutil, :dosbox_location)
+      # cook_location = Application.fetch_env!(:recipeutil, cook_location)
       conf_location = Path.join([cook_location, "cook.conf"])
 
       System.cmd(dosbox_location, ["-conf", conf_location, "-exit"],
         env: [{"SDL_VIDEODRIVER", "dummy"}]
       )
+
+      #debug, copy the file
+      bdy_location = Path.join(cook_location, "nh00a000.bdy")
+      bdy_index_location = Path.join(cook_location, "nh00a000.bdy.#{current_page}")
+      System.cmd("cp", ["-p", bdy_location, bdy_index_location])
 
       # read the resulting files back in
       Path.join(cook_location, "NH00A000.BDY")
@@ -139,7 +171,7 @@ defmodule RecipeUtil.File do
 
     body_contents =
       File.read!(body_filename)
-      |> NewsHeadlines.page_setup(current_page, total_pages)
+      |> page_setup(current_page, total_pages)
 
     # Read the record from the database
     body_object =
@@ -171,4 +203,31 @@ defmodule RecipeUtil.File do
       })
     end
   end
+
+  defp page_setup(buffer, page_number, total_pages) do
+    <<
+      buf1::binary-size(9),
+      _extension1,
+      _extension2,
+      _orig_page_number,
+      buf2::binary-size(3),
+      orig_stage_flags,
+      _orig_total_pages,
+      rest::binary
+    >> = buffer
+
+    # the headline names in the object have the extension truncated to one letter
+    # 8.3 -> 8.1 and two spaces
+    <<
+      buf1::binary-size(9),
+      0x20,
+      0x20,
+      page_number,
+      buf2::binary-size(3),
+      orig_stage_flags,
+      total_pages,
+      rest::binary
+    >>
+  end
+
 end
