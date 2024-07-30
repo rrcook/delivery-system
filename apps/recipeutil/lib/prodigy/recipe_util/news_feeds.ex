@@ -2,8 +2,15 @@ defmodule NewsFeeds do
   require Logger
 
   @number_of_feeds 10
-  @margin 50
+  @margin 60
   @newline "\r\n "
+  @utf_replace_map %{
+    <<0xE2, 0x80, 0x98>> => "\'",
+    <<0xE2, 0x80, 0x99>> => "\'",
+    <<0xE2, 0x80, 0x9C>> => "\"",
+    <<0xE2, 0x80, 0x9D>> => "\"",
+    <<0xE2, 0x80, 0xA6>> => "...",
+  }
 
   # Given a news feed XML in the memorandum family, send back an array
   # of tuples, each item is {headline, story}.
@@ -34,6 +41,7 @@ defmodule NewsFeeds do
           s
           |> Readability.article()
           |> Readability.readable_text()
+          |> String.replace(Map.keys(@utf_replace_map), fn pat -> @utf_replace_map[pat] end)
           |> String.split("\n", parts: 2)
           |> Enum.at(1)
           # that's an emdash
@@ -42,7 +50,7 @@ defmodule NewsFeeds do
         end)
         |> Enum.filter(fn l -> length(l) == 2 end)
         |> Enum.take(number_of_catches)
-        |> Enum.map(fn article -> break_text_on_margin(article, @margin) end)
+        |> Enum.map(fn article -> break_on_margin(article, @margin) end)
     rescue
       # If we can't get the request just return an empty list
       e ->
@@ -53,9 +61,15 @@ defmodule NewsFeeds do
     end
   end
 
-  defp break_text_on_margin([hl, body], margin) do
+  defp break_on_margin([hl, body], margin) do
+    hl_lines = break_text_on_margin(hl, margin)
+    body_lines = break_text_on_margin(body, margin)
+    [hl_lines, @newline <> body_lines]
+  end
+
+  defp break_text_on_margin(text, margin) do
     # current_line = []
-    words = String.split(body, ~r/\s+/u)  # Split the input text into words using regular expression
+    words = String.split(text, ~r/\s+/u)  # Split the input text into words using regular expression
     {lines, current_line} = Enum.reduce(words, {[], []}, fn word, {lines, current_line} ->
       if length(current_line) == 0 do
         {lines, [word]}
@@ -70,9 +84,9 @@ defmodule NewsFeeds do
     end)
 
     if length(current_line) > 0 do
-      [hl, Enum.join(lines ++ [Enum.join(current_line, " ")], @newline)]
+      Enum.join(lines ++ [Enum.join(current_line, " ")], @newline)
     else
-      [hl, Enum.join(lines, @newline)]
+      Enum.join(lines, @newline)
     end
   end
 end
