@@ -9,17 +9,24 @@ defmodule RecipeUtil.File do
   @headerx <<0xA1, 0xCA, 0xC1, 0xA3>>
   @headerx2 <<0xA1, 0xC8, 0xC0, 0xA3>>
 
-  @header <<0xA1, 0xC8, 0xC0, 0xA3>>
+  # @header <<0xA1, 0xCA, 0xC0, 0xA3>>
+  # @header <<0x20, 0x50>>
+  @header2 <<>>
+  # @header <<0xA0, 0xF8, 0xC0>> # from pheller, clears whole screen
   ## 0b11 001 01 0  0b11001010 0xca     0x6a
   ## 0b01 000 00 1  0b01000001 0x41
 
   # from plucking from the big buffer
   # @header <<0xA1, 0xC8, 0xC0, 0xC0>>
 
-  @header2 <<0xA1, 0xC8, 0xC0, 0xC0, 0xD2, 0xA3, 0xC4, 0xC0, 0xD2, 0xC0, 0xBE, 0xC0, 0xC8, 0xB3, 0xC2,
+  @header <<0xA1, 0xC8, 0xC0, 0xC0, 0xD2, 0xA3, 0xC4, 0xC0, 0xD2, 0xC0, 0xBE, 0xC0, 0xC8, 0xB3, 0xC2,
   0xC6, 0xC2, 0xDE, 0xF8, 0xF1, 0xA2, 0xF0, 0xC0, 0xC0, 0xC1, 0xEA, 0xB8, 0xC0, 0xC0, 0xD8,
   0xDB, 0xF9, 0xE8, 0xA4, 0xC2, 0xC4, 0xDF, 0xBE, 0xD0,
   0x0F>>
+
+  ## 0xBE - select color
+
+
 
   @number_of_pages 4
 
@@ -88,10 +95,10 @@ defmodule RecipeUtil.File do
       filename = "#{base}.#{extension}"
 
       # future magic here, make a news headline map
-      news_feed = Application.fetch_env!(:recipeutil, :tech_news)
-      # news_feed = "https://memeorandum.com/feed.xml"
+      news_feed = Application.fetch_env!(:recipeutil, :news_feed)
       news_stories = NewsFeeds.get_stories(news_feed, @number_of_pages)
-      IO.inspect("got news stories, #{news_stories}")
+      IO.inspect("got news stories")
+      IO.inspect(news_stories)
 
       num_items = length(news_stories)
       with_indices = Enum.zip(1..num_items, news_stories)
@@ -107,6 +114,13 @@ defmodule RecipeUtil.File do
              hl,
           "NextHL" => "Go to next page"
         }
+
+        page_map = cond do
+          index < num_items ->
+            page_map
+          true ->
+            %{page_map | "NextHL" => " "}
+        end
         create_one_page(contents, page_map, filename, dest, index, num_items )
       end)
 
@@ -150,7 +164,11 @@ defmodule RecipeUtil.File do
     # for debugging
     File.write!(rf_location <> ".#{current_page}", recipe_bytes)
 
-    use_emu2 = false
+    use_emu2 = case Application.fetch_env(:recipeutil, :use_emu2) do
+      {:ok, value} ->
+        value == "true"
+      :error -> false
+    end
 
     body_filename = if use_emu2 do
       # run cook on the file
