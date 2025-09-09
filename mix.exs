@@ -4,7 +4,7 @@ defmodule DeliverySystem.MixProject do
   def project do
     [
       name: "Delivery System",
-      apps: [:core, :podbutil, :pomsutil, :server],
+      apps: [:core, :podbutil, :pomsutil, :recipeutil, :server],
       apps_path: "apps",
       version: "0.1.0",
       start_permanent: Mix.env() == :prod,
@@ -40,6 +40,10 @@ defmodule DeliverySystem.MixProject do
         ]
       ]
     ]
+  end
+
+  defp aliases do
+    ["test": ["ecto.create", "ecto.migrate", "test", "ecto.drop"]]
   end
 
   # Dependencies listed here are available only for this
