@@ -27,13 +27,18 @@ config :server, Prodigy.Server.Scheduler,
     ]
   ]
 
-config :recipe,
+config :recipeutil,
+  use_emu2: "false",
   cook_location: "/Users/rrc/recipe",
-  dosbox_location: "/Applications/DOSBox Staging.app/Contents/MacOS/dosbox"
+  dosbox_location: "/Applications/DOSBox Staging.app/Contents/MacOS/dosbox",
+  news_feed: "https://memeorandum.com/feed.xml",
+  headline_news: "https://memeorandum.com/feed.xml",
+  tech_news: "https://techmeme.com/feed.xml",
+  entertainment_news: "https://wesmirch.com/feed.xml"
 
 config :core, ecto_repos: [Prodigy.Core.Data.Repo], ecto_adapter: Ecto.Adapters.Postgres
 
 config :logger, :console, format: "$time $metadata[$level] $message\n"
-config :logger, level: :info
+config :logger, level: :debug
 
 import_config "#{Mix.env()}.exs"
