@@ -40,7 +40,7 @@ defmodule Prodigy.Server.Protocol.Tcs.Transmitter.Test do
 
   test "queues and sends packets", %{transmitter: pid} do
     Transmitter.transmit_packet(pid, "test_packet", 1)
-    # assert_receive {:send, "test_packet"}
+    assert_receive {:send, "test_packet"}
   end
 
   test "handles ackpkt", %{transmitter: pid} do
@@ -53,7 +53,7 @@ defmodule Prodigy.Server.Protocol.Tcs.Transmitter.Test do
   test "handles nakcce", %{transmitter: pid} do
     Transmitter.transmit_packet(pid, "test_packet", 1)
     GenServer.cast(pid, {:nakcce, 1})
-    # assert_receive {:send, "test_packet"}
+    assert_receive {:send, "test_packet"}
   end
 
   test "handles nakncc", %{transmitter: pid} do
