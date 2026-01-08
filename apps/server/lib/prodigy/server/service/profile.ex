@@ -254,6 +254,8 @@ defmodule Prodigy.Server.Service.Profile do
       0x160 -> user.middle_name
       0x161 -> user.title
       0x162 -> user.birthdate
+      0x183 -> "0ABC123"  # this is the AA freq flier number
+      0x18A -> "     "    # this, I think, is the travel agent id; blank for none
       0x20A -> user.prf_path_jumpword_13
       0x20B -> user.prf_path_jumpword_14
       0x20C -> user.prf_path_jumpword_15
@@ -277,8 +279,8 @@ defmodule Prodigy.Server.Service.Profile do
       0x2C2 -> user.prf_last_logon_date
       0x2C4 -> user.prf_last_logon_time
       0x2FB -> user.prf_madmaze_save
-      0x183 -> "0H12AX6"
-      0x18A -> "     "
+      # 0x183 -> "0H12AX6"
+      # 0x18A -> "     "
 
       _ ->
         Logger.error("User requested profile value for unhandled TAC #{inspect(tac, base: :hex)}")

@@ -40,6 +40,7 @@ defmodule Prodigy.Server.Router do
     Cmc,
     DataCollection,
     DowJones,
+    EaasySabre,
     Enrollment,
     Logoff,
     Logon,
@@ -128,7 +129,10 @@ defmodule Prodigy.Server.Router do
 
         # 0x040210 -> QuoteTrack # get this when trying to go into quote track 1 or 2 on dow jones
         # 0x060201 -> Banking
-        # 0x063201 -> EaasySabre
+
+        0x063201 ->
+          EaasySabre
+
         0x067201 ->
           DowJones
 
