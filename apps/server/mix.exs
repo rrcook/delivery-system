@@ -52,7 +52,8 @@ defmodule Server.MixProject do
       {:quantum, "~> 3.0"},
       {:core, in_umbrella: true},
       {:mock, "~> 0.3.0", only: :test},
-      {:ex_doc, "~> 0.21", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.21", only: :dev, runtime: false},
+      {:req, "~> 0.5.17"}
     ]
   end
 end
