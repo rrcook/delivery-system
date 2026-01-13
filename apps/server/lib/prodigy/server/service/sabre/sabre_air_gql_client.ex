@@ -19,9 +19,10 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
     post_body = build_request(sabre_map)
 
     Logger.info("Sending GraphQL request: #{post_body}")
+    url = Application.get_env(:server, :sabre_graphql_url, @url)
 
     response =
-      Req.post(@url,
+      Req.post(url,
         body: post_body,
         headers: %{"Content-Type" => "text/plain"}
       )
