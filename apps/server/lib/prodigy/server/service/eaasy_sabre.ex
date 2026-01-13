@@ -25,7 +25,6 @@ defmodule Prodigy.Server.Service.EaasySabre do
   alias Prodigy.Server.Protocol.Dia.Packet.{Fm0, Fm4, Fm64}
   alias Prodigy.Server.Context
   alias Prodigy.Server.Service.Sabre.SabreAirMapper
-  alias Prodigy.Server.Service.Sabre.SabreAirGqlClient
 
   # send main menu in response to signon
   defp int_handle("/SIGNON" <> <<rest::binary>>) do
@@ -96,7 +95,8 @@ defmodule Prodigy.Server.Service.EaasySabre do
     Logger.info("received eaasy sabre message: " <> message)
 
     client_map = SabreAirMapper.to_map(message)
-    flights = SabreAirGqlClient.handle_request(client_map)
+    client_module = Application.get_env(:server, :sabre_air_client)
+    flights = client_module.handle_request(client_map)
     Logger.info("retrieved flights: #{inspect(flights)}")
     _response_binary = SabreAirMapper.to_binary(flights)
 
