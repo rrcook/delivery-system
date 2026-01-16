@@ -60,7 +60,19 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
     toDate_text = "toDate: \"#{adjust_date(sabre_map.date)}\", "
     origin_text = "origin: \"#{sabre_map.departure}\", "
     dest_text = "dest: \"#{sabre_map.arrival}\", "
-    departure_time_text = "departureTime: \"#{sabre_map.time}\", "
+
+    carrier_text = if Map.has_key?(sabre_map, :carrier) and sabre_map.carrier != nil do
+      "carrier: \"#{sabre_map.carrier}\", "
+    else
+      ""
+    end
+
+    # If there's a flight number, use it directly else there should be a departure time to use
+    f_or_d_text = if Map.has_key?(sabre_map, :flight_number) and sabre_map.flight_number != nil do
+      "flightNumber: \"#{sabre_map.flight_number}\", "
+    else
+      "departureTime: \"#{sabre_map.time}\", "
+    end
 
     query_text = """
     query {
@@ -69,7 +81,8 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
         #{toDate_text}
         #{origin_text}
         #{dest_text}
-        #{departure_time_text}
+        #{carrier_text}
+        #{f_or_d_text}
         limit: 100) {
           id
           flightNumber
