@@ -1,17 +1,32 @@
 defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
   @moduledoc """
-  Maps Sabre Air messages to internal client message format and vice versa.
+  GraphQL client implementation for Sabre Air requests.
+
+  This module implements the `Prodigy.Server.Service.Sabre.SabreAirClient` behaviour,
+  handling flight queries by sending GraphQL requests to a configured endpoint and
+  parsing the responses.
+
+  ## Configuration
+
+  The GraphQL endpoint URL can be configured via:
+
+      config :server, :sabre_graphql_url, "http://your-api-endpoint/api/graphql"
+
+  If not configured, defaults to `http://localhost:4000/api/graphql`.
   """
 
-  @doc """
-  Converts a Sabre Air date string (e.g., "JAN15") to a Date struct.
-  """
   require Logger
 
-  @url  "http://localhost:4000/api/graphql"
+  @url "http://localhost:4000/api/graphql"
 
   @behaviour Prodigy.Server.Service.Sabre.SabreAirClient
 
+  @doc """
+  Handles a Sabre Air request by querying the GraphQL flight API.
+
+  Builds a GraphQL query from the request map, sends it to the configured
+  endpoint, and parses the response into a list of flight maps.
+  """
   def handle_request(sabre_map) do
     # Implementation of request handling
 
