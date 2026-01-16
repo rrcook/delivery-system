@@ -98,65 +98,8 @@ defmodule Prodigy.Server.Service.EaasySabre do
     client_module = Application.get_env(:server, :sabre_air_client)
     flights = client_module.handle_request(client_map)
     Logger.info("retrieved flights: #{inspect(flights)}")
-    _response_binary = SabreAirMapper.to_binary(flights)
-
-    <<
-      7,
-      0,
-      0x01,
-      # what page renders this data
-      0x0900::16-big,
-      # how many rows of data are coming
-      9,
-      0,
-      0x24,
-      0x27,
-      0,
-      9,
-      "OCT 05 21"::binary,
-      0x10,
-      0x27,
-      0,
-      39,
-      "AA 1261 DFW  620P LAX 1103P R  0 D10  8"::binary,
-      0x11,
-      0x27,
-      0,
-      39,
-      "UA  456 DFW  700P LAX 1145P L  0 767  N"::binary,
-      # -> selector in field 16
-      0x75,
-      0x27,
-      0x00,
-      7,
-      "AA 1261"::binary,
-      # -> selector in field 17
-      0xD9,
-      0x27,
-      0x00,
-      7,
-      "UA  456"::binary,
-      0xE2,
-      0x27,
-      0,
-      7,
-      "AA 1261"::binary,
-      0x38,
-      0x27,
-      0,
-      7,
-      "UA  456"::binary,
-      0x6A,
-      0x27,
-      0,
-      22,
-      "F  Y  B  M  H  Q  V  K"::binary,
-      0x6B,
-      0x27,
-      0,
-      13,
-      "Y  B  M  H  Q"::binary
-    >>
+    response_binary = SabreAirMapper.to_binary(flights)
+    response_binary
   end
 
   # send some flight options
