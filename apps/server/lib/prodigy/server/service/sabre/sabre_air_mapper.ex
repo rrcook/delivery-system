@@ -149,7 +149,7 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
 
   def is_carrier(str) do
     String.length(str) == 2 and
-    String.to_charlist(str) |> Enum.all?(fn ch -> is_upper(ch) end)
+    String.to_charlist(str) |> Enum.all?(fn ch -> is_upper(ch) or is_digit(ch) end)
   end
 
   def is_connection_city(str) do
