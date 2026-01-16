@@ -3,7 +3,7 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
   Maps between Sabre protocol and internal representations
   """
 
-    @month_nums %{
+  @month_nums %{
     "JAN" => 1,
     "FEB" => 2,
     "MAR" => 3,
@@ -17,6 +17,10 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
     "NOV" => 11,
     "DEC" => 12
   }
+
+  @map_swap fn map -> Map.new(map, fn {key, val} -> {val, key} end) end
+
+  @nums_months @map_swap.(@month_nums)
 
   @doc """
   Converts a date string with format "MMMDD" (e.g., "JAN15") to an Elixir Date.
@@ -74,10 +78,14 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
     # Convert to 24-hour format
     hour_24 =
       case {hour, am_pm} do
-        {12, "A"} -> 0   # 12 AM is midnight (00:xx)
-        {12, "P"} -> 12  # 12 PM is noon (12:xx)
-        {h, "P"} -> h + 12  # Other PM hours add 12
-        {h, "A"} -> h    # Other AM hours stay the same
+        # 12 AM is midnight (00:xx)
+        {12, "A"} -> 0
+        # 12 PM is noon (12:xx)
+        {12, "P"} -> 12
+        # Other PM hours add 12
+        {h, "P"} -> h + 12
+        # Other AM hours stay the same
+        {h, "A"} -> h
       end
 
     # Create and return the Time
@@ -86,17 +94,130 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
 
   defp month_code_to_number(code), do: Map.get(@month_nums, code, "JAN")
 
+  def time_to_sabre(%Time{hour: hour_24, minute: minute}) do
+    # Convert 24-hour to 12-hour format
+    {hour_12, am_pm} =
+      case hour_24 do
+        # Midnight (00:xx) -> 12 AM
+        0 -> {12, "A"}
+        # 1-11 AM
+        h when h < 12 -> {h, "A"}
+        # Noon (12:xx) -> 12 PM
+        12 -> {12, "P"}
+        # 13-23 -> 1-11 PM
+        h -> {h - 12, "P"}
+      end
+
+    # Format the time string with proper padding
+    time_digits = "#{hour_12}#{String.pad_leading(Integer.to_string(minute), 2, "0")}"
+
+    time_part =
+      case hour_12 do
+        h when h < 10 -> " " <> time_digits
+        _ -> time_digits
+      end
+
+    time_part <> am_pm
+  end
 
   @doc """
   Takes in a Sabre message and converts it to a map
+  /AIR,JFK,ATL,OCT15,600P,1
+  /AIR,JFK,ATL,OCT15,600P,DL,1
+  /AIR,JFK,ATL,OCT15,600P,3,Q
+  /AIR,JFK,ATL,OCT15,600P,DL,2,CINCINNATI,Q
+  /AIR,JFK,ATL,OCT15,AA444,3,CINCINNATI,Q
+  /AIR,JFK,ATL,OCT15,AA7777,3,ROANOKE,X
+  /AIR,JFK,ATL,OCT15,600P,DL,3,ROANOKE
   """
-  def to_map(sabre_message) do
+  def is_digit(ch), do: ch in ?0..?9
+  def is_upper(ch), do: ch in ?A..?Z
 
+  def is_passenger_count(str) do
+    String.length(str) == 1 and is_digit(String.to_charlist(str) |> hd())
+  end
+
+  def is_booking_class(str) do
+    String.length(str) == 1 and is_upper(String.to_charlist(str) |> hd())
+  end
+
+  def is_flight_number(str) do
+    String.length(str) > 2 and
+    String.slice(str, 0, 2) |> String.to_charlist() |> Enum.all?(fn ch -> is_upper(ch) end) and
+    String.slice(str, 2..-1//1) |> String.to_charlist() |> Enum.all?(fn ch -> is_digit(ch) end)
+  end
+
+  def is_carrier(str) do
+    String.length(str) == 2 and
+    String.to_charlist(str) |> Enum.all?(fn ch -> is_upper(ch) end)
+  end
+
+  def is_connection_city(str) do
+    String.length(str) >= 3 and
+    String.to_charlist(str) |> Enum.all?(fn ch -> is_upper(ch) or ch == ?_ end)
+  end
+
+  def is_flight_time(str) do
+    len = String.length(str)
+    (len == 4 or len == 5) and
+    String.slice(str, 0, len - 1) |> String.to_charlist() |> Enum.all?(fn ch -> is_digit(ch) end) and
+    (String.slice(str, -1, 1) == "A" or String.slice(str, -1, 1) == "P")
+  end
+
+  def to_map(sabre_message) do
+    parts = String.split(sabre_message, ",")
+    [_message_type, departure, arrival, raw_date | rest] = parts
+
+    date = date_convert(raw_date) |> Date.to_string()
+
+    list_to_map(%{
+      type: :airline,
+      departure: departure,
+      arrival: arrival,
+      date: date
+    }, rest)
+  end
+
+  def list_to_map(map, []) do
+    map
+  end
+
+  def list_to_map(map, [head | tail]) do
+    cond do
+      is_flight_time(head) ->
+        time = time_convert(head) |> Time.to_string()
+        list_to_map(Map.put(map, :time, time), tail)
+
+      is_passenger_count(head) ->
+        list_to_map(Map.put(map, :passengers, head), tail)
+
+      is_booking_class(head) ->
+        list_to_map(Map.put(map, :booking_class, head), tail)
+
+      is_flight_number(head) ->
+        list_to_map((Map.put(map, :carrier, String.slice(head, 0, 2))
+        |> Map.put(:flight_number, String.slice(head, 2..-1//1))), tail)
+
+      is_carrier(head) ->
+        list_to_map(Map.put(map, :carrier, head), tail)
+
+      is_connection_city(head) ->
+        list_to_map(Map.put(map, :connection_city, head), tail)
+
+      true ->
+        # Unrecognized part, skip it
+        list_to_map(map, tail)
+    end
+  end
+
+
+  def to_mapx(sabre_message) do
     parts = String.split(sabre_message, ",")
     [message_type, departure, arrival, raw_date, raw_time, passengers | rest] = parts
 
     date = date_convert(raw_date) |> Date.to_string()
     time = time_convert(raw_time) |> Time.to_string()
+
     %{
       type: :airline,
       departure: departure,
@@ -107,8 +228,111 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
     }
   end
 
-  def to_binary(_client_map) do
-    # Placeholder mapping logic
-    <<"TO BE IMPLEMENTED">>
+  def encode_one_flight(flight) do
+    departure_text = Time.from_iso8601!(Map.get(flight, "departureTime")) |> time_to_sabre()
+    arrival_text = Time.from_iso8601!(Map.get(flight, "arrivalTime")) |> time_to_sabre()
+    padded_flight_number = String.pad_leading(Map.get(flight, "flightNumber"), 4, " ")
+
+    "#{Map.get(flight, "carrier")} #{padded_flight_number} #{Map.get(flight, "origin")} #{departure_text} " <>
+      "#{Map.get(flight, "dest")} #{arrival_text} R  0 D10  8"
+  end
+
+  def to_binary(client_maps) do
+    case client_maps do
+      [] ->
+        # No flights found response
+        Logger.info("no flights found")
+
+        <<
+          # header len
+          7,
+          # unused?
+          0,
+          # map
+          0x01,
+          # no flights found code
+          0xFFFF::16-big,
+          0,
+          0
+        >>
+
+      flights when is_list(flights) ->
+        # all the dates will be the same, so get from first flight
+        first_flight = List.first(flights)
+        header_date = Date.from_iso8601!(Map.get(first_flight, "date"))
+        header_date_text = Calendar.strftime(header_date, "%3b %02d %02y") |> String.upcase()
+        flight_binaries = Enum.map(flights, fn flight -> encode_one_flight(flight) end)
+
+        num_rows = 7 + length(flights)
+
+        header =
+          <<
+            7,
+            0,
+            0x01,
+            # what page renders this data
+            0x0900::16-big,
+            # number of rows
+            num_rows,
+            0,
+            0x24,
+            0x27,
+            0,
+            byte_size(header_date_text),
+            header_date_text::binary
+          >>
+
+        indices = Enum.zip(16..100, flight_binaries)
+
+        flight_rows =
+          Enum.reduce(indices, <<>>, fn {index, flight_binary}, acc ->
+            acc <>
+              <<
+                index,
+                0x27,
+                0,
+                byte_size(flight_binary),
+                flight_binary::binary
+              >>
+          end)
+
+        footer =
+          <<
+            # -> selector in field 16
+            0x75,
+            0x27,
+            0x00,
+            7,
+            "AA 1261"::binary,
+            # -> selector in field 17
+            0xD9,
+            0x27,
+            0x00,
+            7,
+            "UA  456"::binary,
+            0xE2,
+            0x27,
+            0,
+            7,
+            "AA 1261"::binary,
+            0x38,
+            0x27,
+            0,
+            7,
+            "UA  456"::binary,
+            0x6A,
+            0x27,
+            0,
+            22,
+            "F  Y  B  M  H  Q  V  K"::binary,
+            0x6B,
+            0x27,
+            0,
+            13,
+            "Y  B  M  H  Q"::binary
+          >>
+
+          header <> flight_rows <> footer
+    end
   end
 end
