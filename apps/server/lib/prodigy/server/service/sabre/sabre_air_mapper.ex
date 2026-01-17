@@ -25,6 +25,14 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
 
       iex> SabreAirMapper.to_map("/AIR,JFK,ATL,OCT15,AA444,3,Q")
       %{type: :airline, departure: "JFK", arrival: "ATL", date: "2026-10-15", carrier: "AA", flight_number: "444", passengers: "3", booking_class: "Q"}
+      /AIR,JFK,ATL,OCT15,600P,1
+      /AIR,JFK,ATL,OCT15,600P,DL,1
+      /AIR,JFK,ATL,OCT15,600P,3,Q
+      /AIR,JFK,ATL,OCT15,600P,DL,2,CINCINNATI,Q
+      /AIR,JFK,ATL,OCT15,AA444,3,CINCINNATI,Q
+      /AIR,JFK,ATL,OCT15,AA7777,3,ROANOKE,X
+      /AIR,JFK,ATL,OCT15,600P,DL,3,ROANOKE
+
   """
 
   @month_nums %{
