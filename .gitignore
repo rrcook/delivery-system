@@ -28,3 +28,4 @@ erl_crash.dump
 .elixir_ls
 .idea
 *.iml
+**/.DS_Store
