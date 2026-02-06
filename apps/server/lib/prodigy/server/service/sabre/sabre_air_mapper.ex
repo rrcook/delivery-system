@@ -35,6 +35,8 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
 
   """
 
+  require Logger
+
   @month_nums %{
     "JAN" => 1,
     "FEB" => 2,
@@ -273,25 +275,6 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
         # Unrecognized part, skip it
         list_to_map(map, tail)
     end
-  end
-
-  @doc false
-  # Legacy parser with fixed positional arguments. Use `to_map/1` instead.
-  def to_mapx(sabre_message) do
-    parts = String.split(sabre_message, ",")
-    [message_type, departure, arrival, raw_date, raw_time, passengers | rest] = parts
-
-    date = date_convert(raw_date) |> Date.to_string()
-    time = time_convert(raw_time) |> Time.to_string()
-
-    %{
-      type: :airline,
-      departure: departure,
-      arrival: arrival,
-      date: date,
-      time: time,
-      passengers: passengers
-    }
   end
 
   @doc """
