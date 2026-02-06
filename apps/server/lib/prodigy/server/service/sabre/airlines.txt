@@ -750,7 +750,7 @@ P5;AeroRep
 P7;Russian Sky Airlines
 P8;Pantanal Linhas Aéreas
 P9;Nas Air
-PA;Florida Coastal Airlines
+PA;Pan Am
 PC;Air Fiji
 PD;Porter Airlines
 PE;Air Europe
