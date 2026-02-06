@@ -21,7 +21,7 @@ defmodule Prodigy.Server.Context do
   persists until the connection is terminated.
   """
 
-  defstruct [:user, :session_id, :rs_version, :auth_timeout, :messaging, :bb]
+  defstruct [:user, :session_id, :rs_version, :auth_timeout, :messaging, :bb, :eaasy_sabre]
 
   def set_auth_timer do
     Process.send_after(self(), :auth_timeout, Application.fetch_env!(:server, :auth_timeout))
