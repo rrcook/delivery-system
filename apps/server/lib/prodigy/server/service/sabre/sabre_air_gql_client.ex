@@ -15,6 +15,8 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
   If not configured, defaults to `http://localhost:4000/api/graphql`.
   """
 
+  alias Prodigy.Server.Service.Sabre.SabreAirMapper
+
   require Logger
 
   @url "http://localhost:4000/api/graphql"
@@ -42,9 +44,8 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
         headers: %{"Content-Type" => "text/plain"}
       )
 
-      Logger.info("Received GraphQL response: #{inspect(response)}")
+    Logger.info("Received GraphQL response: #{inspect(response)}")
     parse_response(response)
-
   end
 
   defp parse_response(response) do
@@ -52,12 +53,13 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
     case response do
       {:ok, %Req.Response{status: 200, body: body}} ->
         try do
-          body |> Map.get("data") |> Map.get("flights")
+          body |> Map.get("data") |> Map.get("flights") |> es_map()
         rescue
           e ->
             IO.puts("Failed to parse GraphQL response body: #{inspect(e)}")
             []
         end
+
       {:ok, %Req.Response{status: status}} ->
         IO.puts("GraphQL request failed with status: #{status}")
         []
@@ -76,20 +78,22 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
     origin_text = "origin: \"#{sabre_map.departure}\", "
     dest_text = "dest: \"#{sabre_map.arrival}\", "
 
-    carrier_text = if Map.has_key?(sabre_map, :carrier) and sabre_map.carrier != nil do
-      "carrier: \"#{sabre_map.carrier}\", "
-    else
-      ""
-    end
+    carrier_text =
+      if Map.has_key?(sabre_map, :carrier) and sabre_map.carrier != nil do
+        "carrier: \"#{sabre_map.carrier}\", "
+      else
+        ""
+      end
 
     # If there's a flight number, use it directly else there should be a departure time to use
-    f_or_d_text = if Map.has_key?(sabre_map, :flight_number) and sabre_map.flight_number != nil do
-      "flightNumber: \"#{sabre_map.flight_number}\", "
-    else
-      "departureTime: \"#{sabre_map.time}\", "
-    end
+    f_or_d_text =
+      if Map.has_key?(sabre_map, :flight_number) and sabre_map.flight_number != nil do
+        "flightNumber: \"#{sabre_map.flight_number}\", "
+      else
+        "departureTime: \"#{sabre_map.time}\", "
+      end
 
-    query_text = """
+    """
     query {
       flights(
         #{fromDate_text}
@@ -119,5 +123,37 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
     date = Date.from_iso8601!(date_text)
     year_shift = 2013 - date.year
     Date.shift(date, year: year_shift) |> Date.to_string()
+  end
+
+  # Converts a list of flight maps from the GraphQL response into the format expected by eaasy_sabre module.
+  defp es_map(flights) when is_list(flights) do
+    Enum.map(flights, fn flight ->
+      es_one_flight_map(flight)
+    end)
+    |> Enum.with_index()
+    |> Enum.map(fn {flight, idx} -> Map.put(flight, :index, idx) end)
+  end
+
+  defp es_one_flight_map(flight) do
+    departure_text = Time.from_iso8601!(Map.get(flight, "departureTime")) |> SabreAirMapper.time_to_sabre()
+    arrival_text = Time.from_iso8601!(Map.get(flight, "arrivalTime")) |> SabreAirMapper.time_to_sabre()
+    padded_flight_number = String.pad_leading(Map.get(flight, "flightNumber"), 4, " ")
+
+    header_date = Date.from_iso8601!(Map.get(flight, "date"))
+    formatted_date = Calendar.strftime(header_date, "%3b %02d %02y") |> String.upcase()
+
+    %{
+      flight: flight["carrier"] <> " " <> padded_flight_number,
+      origin: flight["origin"],
+      depart: departure_text,
+      dest: flight["dest"],
+      arrive: arrival_text,
+      formatted_date: formatted_date,
+      # Dummy values for required fields not provided by GraphQL API
+      stops: 0,
+      equip: "D10",
+      meal: "8",
+      booking_classes: ["F", "Y", "B", "M", "H", "Q", "V", "K"]
+    }
   end
 end
