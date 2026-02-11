@@ -67,9 +67,9 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
     "DEC" => 12
   }
 
-  @map_swap fn map -> Map.new(map, fn {key, val} -> {val, key} end) end
+  # @map_swap fn map -> Map.new(map, fn {key, val} -> {val, key} end) end
 
-  @nums_months @map_swap.(@month_nums)
+  # @nums_months @map_swap.(@month_nums)
 
   # Converts a date string with format "MMMDD" (e.g., "JAN15") to an Elixir Date.
   # The month code should be three uppercase letters (JAN, FEB, etc.)
