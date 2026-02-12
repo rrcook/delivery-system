@@ -218,13 +218,10 @@ defmodule Prodigy.Server.Service.EaasySabre do
     row1 <> row2 <> row3
   end
 
-  # Format a flight date for display (e.g., "OCT-01-1991")
-  # For now, returns a placeholder - should be derived from search context
-  defp format_flight_date(_flight) do
-    # TODO: Get actual date from search parameters or flight data
-    "OCT-01-1991  "  # 13 chars
-  end
-
+  # defp format_flight_date(_flight) do
+  #   # TODO: Get actual date from search parameters or flight data
+  #   "OCT-01-1991  "  # 13 chars
+  # end
   # Format a search date for display (e.g., "OCT01" -> "OCT 01 91")
   defp format_search_date(date) do
     # Parse date like "OCT01" or "OCT14"
@@ -252,7 +249,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
       {code_field, date_field, details_field} = Enum.at(@reservation_flight_fields, idx)
 
       booking_code = Map.get(flight, :selected_class, "Y")
-      date_str = format_flight_date(flight)
+      date_str = Map.get(flight, :formatted_date, "N/A") |> String.slice(0, 13) |> String.pad_trailing(13)
       details = format_reservation_flight_details(flight)
 
       <<
@@ -613,10 +610,12 @@ defmodule Prodigy.Server.Service.EaasySabre do
   # ============================================================================
 
   defp int_handle(selection, %{current_page: @page_main_menu} = state) do
+    Logger.debug("Eaasy Sabre: int_handle Main Menu selection #{inspect(selection)}")
     handle_menu_selection(selection, @main_menu_actions, "Main Menu", state)
   end
 
   defp int_handle(selection, %{current_page: @page_travel_reservations} = state) do
+    Logger.debug("Eaasy Sabre: int_handle Travel Reservations selection #{inspect(selection)}")
     handle_menu_selection(selection, @travel_menu_actions, "Travel Reservations", state)
   end
 
@@ -627,6 +626,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
   # Flight results - numeric selection picks a flight
   defp int_handle(selection, %{current_page: @page_flight_results, search_results: results} = state)
        when results != nil do
+    Logger.debug("Eaasy Sabre: int_handle Flight Results selection #{inspect(selection)}")
     case Integer.parse(selection) do
       {index, ""} when index >= 1 ->
         case Enum.at(results, index - 1) do
@@ -647,13 +647,15 @@ defmodule Prodigy.Server.Service.EaasySabre do
             # Total fields: 1 (flight info) + class_count (display) + 1 (date) + class_count (selection)
             field_count = 2 + class_count * 2
 
+            formatted_flight_date = Map.get(flight, :formatted_date, "N/A   ") |> String.slice(0, 6)
+
             response = <<
               7, 0, 0x01,
               @page_select_booking_code::16-big,
               field_count, 0,
               0x10, 0x27, 0, 114, flight_info::binary,
               display_fields::binary,
-              0x4C, 0x27, 0, 6, "OCT 01",
+              0x4C, 0x27, 0, 6, formatted_flight_date::binary,
               selection_fields::binary
             >>
 
@@ -669,6 +671,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
   # Booking class selection - numeric selection picks a fare class
   defp int_handle(selection, %{current_page: @page_select_booking_code, current_flight: flight, profile_selected: profile_selected} = state)
        when flight != nil do
+    Logger.debug("Eaasy Sabre: int_handle Booking Class selection #{inspect(selection)} for flight #{inspect(flight.flight)}")
     case Integer.parse(selection) do
       {index, ""} when index >= 1 and index <= length(flight.booking_classes) ->
         selected_class = Enum.at(flight.booking_classes, index - 1)
@@ -713,6 +716,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
   # Responds with flight results with origin/dest swapped from first selected flight
   defp int_handle(date_input, %{current_page: @page_return_flight_date, selected_flights: flights} = state)
        when flights != [] do
+    Logger.debug("Eaasy Sabre: int_handle Return Flight Date input #{inspect(date_input)}")
     # Get the first flight (most recently added, at head of list)
     first_flight = hd(flights)
 
@@ -751,6 +755,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
 
   # Reservations made page selections
   defp int_handle(selection, %{current_page: @page_reservations_made, selected_flights: flights} = state) do
+    Logger.debug("Eaasy Sabre: int_handle Reservations Made selection #{inspect(selection)}")
     case selection do
       # View flight 1 details
       "1" when length(flights) >= 1 ->
@@ -795,6 +800,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
 
   # Continue/Complete request page selections
   defp int_handle(selection, %{current_page: @page_continue_complete} = state) do
+    Logger.debug("Eaasy Sabre: int_handle Continue/Complete selection #{inspect(selection)}")
     case selection do
       # Add a return flight (roundtrip) - goes to return flight date page
       "1" ->
