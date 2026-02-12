@@ -560,31 +560,6 @@ defmodule Prodigy.Server.Service.EaasySabre do
     {response, new_state}
   end
 
-  defp int_handle("/AIRXXX`," <> rest, state) do
-    Logger.info("Eaasy Sabre: AIR search - #{rest}")
-
-    # Parse the search parameters (origin, destination, date, time)
-    # Format: /AIR,DFW,LAX,OCT01,1200P,1
-    params = String.split(rest, ",")
-    origin = Enum.at(params, 0, "DFW")
-    dest = Enum.at(params, 1, "LAX")
-    date = Enum.at(params, 2, "OCT01")
-
-    # Format date for display (e.g., "OCT 05 21")
-    date_display = format_search_date(date)
-
-    search_results = get_sample_flights(origin, dest)
-
-    new_state = %{state |
-      current_page: @page_flight_results,
-      search_results: search_results
-    }
-
-    response = build_flight_results_response(search_results, date_display)
-
-    {response, new_state}
-  end
-
   defp int_handle("/RULES" <> _rest, state) do
     Logger.info("Eaasy Sabre: RULES")
     # TODO: Implement rules display
