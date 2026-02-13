@@ -102,10 +102,15 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
 
     # If there's a flight number, use it directly else there should be a departure time to use
     f_or_d_text =
-      if Map.has_key?(sabre_map, :flight_number) and sabre_map.flight_number != nil do
-        "flightNumber: \"#{sabre_map.flight_number}\", "
-      else
-        "departureTime: \"#{sabre_map.time}\", "
+      cond do
+        Map.has_key?(sabre_map, :flight_number) and sabre_map.flight_number != nil ->
+          "flightNumber: \"#{sabre_map.flight_number}\", "
+
+        Map.has_key?(sabre_map, :time) and sabre_map.time != nil ->
+          "departureTime: \"#{sabre_map.time}\", "
+
+        true ->
+          ""
       end
 
     """
