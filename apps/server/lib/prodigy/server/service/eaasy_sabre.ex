@@ -701,16 +701,18 @@ defmodule Prodigy.Server.Service.EaasySabre do
 
     Logger.info("Eaasy Sabre: Return flight date #{date_input} - searching #{origin} to #{dest}")
 
+
+    # Get flights with swapped origin/destination
+    return_flight_text = "/AIR,#{origin},#{dest},#{date_input}"
+
+    client_map = SabreAirMapper.to_map(return_flight_text)
+    client_module = Application.get_env(:server, :sabre_air_client)
+    search_results = client_module.handle_request(client_map)
+
+    new_state = %{state | current_page: @page_flight_results, search_results: search_results}
+
     # Format the date for display
-    date_display = format_search_date(date_input)
-
-    # Get sample flights with swapped origin/destination
-    search_results = get_sample_flights(origin, dest)
-
-    new_state = %{state |
-      current_page: @page_flight_results,
-      search_results: search_results
-    }
+    date_display = List.first(search_results).formatted_date
 
     response = build_flight_results_response(search_results, date_display)
 
