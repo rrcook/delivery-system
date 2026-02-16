@@ -67,6 +67,21 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
     "DEC" => 12
   }
 
+  @num_months %{
+    "01" => "Jan",
+    "02" => "Feb",
+    "03" => "Mar",
+    "04" => "Apr",
+    "05" => "May",
+    "06" => "Jun",
+    "07" => "Jul",
+    "08" => "Aug",
+    "09" => "Sep",
+    "10" => "Oct",
+    "11" => "Nov",
+    "12" => "Dec"
+  }
+
   # @map_swap fn map -> Map.new(map, fn {key, val} -> {val, key} end) end
 
   # @nums_months @map_swap.(@month_nums)
@@ -88,6 +103,12 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirMapper do
 
     # Create and return the Date
     Date.new!(year, month, day)
+  end
+
+  # Takes a date string made with date_convert and formats is as "MonDD" (e.g., "Jan15") for display in Sabre terminal.
+  def mapper_date_format(date_string) do
+    [_year, month, day] = String.split(date_string, "-")
+    @num_months[month] <> " " <> day
   end
 
   # Converts a time string with format "HHMMA" or "HMMA" (e.g., "130P", "1030A") to an Elixir Time.
