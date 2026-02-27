@@ -546,9 +546,14 @@ defmodule Prodigy.Server.Service.EaasySabre do
     search_results = client_module.handle_request(client_map)
     Logger.info("retrieved flights: #{inspect(search_results)}")
 
-    # date_display = format_search_date(date)
     # each flight in search_results should have a formatted_date field
-    date_display = List.first(search_results).formatted_date
+    # If no flights returned, use the search date for display (formatted as "OCT 01 91")
+    date_display = cond do
+      length(search_results) > 0 ->
+        List.first(search_results).formatted_date
+      true ->
+        SabreAirMapper.mapper_date_format(client_map[:date])
+    end
 
     new_state = %{state |
       current_page: @page_flight_results,
@@ -711,8 +716,14 @@ defmodule Prodigy.Server.Service.EaasySabre do
 
     new_state = %{state | current_page: @page_flight_results, search_results: search_results}
 
-    # Format the date for display
-    date_display = List.first(search_results).formatted_date
+    # each flight in search_results should have a formatted_date field
+    # If no flights returned, use the search date for display (formatted as "OCT 01 91")
+    date_display = cond do
+      length(search_results) > 0 ->
+        List.first(search_results).formatted_date
+      true ->
+        SabreAirMapper.mapper_date_format(client_map[:date])
+    end
 
     response = build_flight_results_response(search_results, date_display)
 
