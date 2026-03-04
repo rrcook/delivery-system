@@ -72,6 +72,14 @@ defmodule Prodigy.Server.Service.EaasySabre do
     "9" => {"Flight Itinerary Details", nil}
   }
 
+  @max_flights 6
+
+  @doc """
+  Return the maximum number of flights that can be selected for an itinerary.
+  Put here and public so it can be used in other modules.
+  """
+  def max_flights, do: @max_flights
+
   @doc """
   Initialize a fresh Eaasy Sabre state.
   """
@@ -405,18 +413,6 @@ defmodule Prodigy.Server.Service.EaasySabre do
     >>
   end
 
-  # Generate sample flight search results for a given origin and destination
-  # TODO: Replace with actual flight search when backend is available
-  defp get_sample_flights(origin, dest) do
-    # Sample flights - in reality these would come from a backend service
-    [
-      %{flight: "AA 1261", origin: origin, depart: "620P", dest: dest, arrive: "1103P", stops: 0, equip: "D10", meal: "8", booking_classes: ["F", "Y", "B", "M", "H", "Q", "V", "K"]},
-      %{flight: "UA  456", origin: origin, depart: "700P", dest: dest, arrive: "1145P", stops: 0, equip: "767", meal: "N", booking_classes: ["Y", "B", "M", "H", "Q"]}
-    ]
-    |> Enum.with_index()
-    |> Enum.map(fn {flight, idx} -> Map.put(flight, :index, idx) end)
-  end
-
   # Format a flight result row for display (39 chars)
   # Format: "AA 1261 DFW  620P LAX 1103P R  0 D10  8"
   defp format_flight_result_row(flight) do
@@ -457,18 +453,18 @@ defmodule Prodigy.Server.Service.EaasySabre do
     |> Enum.join()
 
     # Build selection number fields (0x75, 0xD9, etc.)
-    selection_field_ids = [0x75, 0xD9, 0x3D, 0xA1, 0x05, 0x69]  # Up to 6 flights
+    selection_field_ids = [0x7527, 0xD927, 0x3D28, 0xA128, 0x0529, 0x6929]  # Up to 6 flights
     selection_fields = search_results
     |> Enum.with_index(1)
     |> Enum.map(fn {_flight, num} ->
       field_id = Enum.at(selection_field_ids, num - 1)
       num_str = Integer.to_string(num)
-      <<field_id, 0x27, 0x00, byte_size(num_str), num_str::binary>>
+      <<field_id::16-big, 0x00, byte_size(num_str), num_str::binary>>
     end)
     |> Enum.join()
 
     # Build flight code display fields (0xE2, 0x38, etc.)
-    code_field_ids = [0xE2, 0x38, 0x8E, 0xE4, 0x3A, 0x90]  # Up to 6 flights
+    code_field_ids = [0xE2, 0x38, 0x42, 0x4C, 0x56, 0x60]  # Up to 6 flights
     code_fields = search_results
     |> Enum.with_index()
     |> Enum.map(fn {flight, idx} ->
@@ -894,7 +890,7 @@ defmodule Prodigy.Server.Service.EaasySabre do
     # Process the request
     {response_payload, es_state} = int_handle(normalized_payload, es_state)
 
-    Logger.debug("Eaasy Sabre TX: #{inspect(response_payload, limit: :infinity)}")
+    Logger.debug("Eaasy Sabre TX: #{inspect(response_payload, limit: :infinity, base: :hex)}")
     Logger.debug("Eaasy Sabre state: #{inspect(es_state)}")
 
     # Update context with new state
