@@ -30,6 +30,7 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
   If not configured, defaults to `http://localhost:4000/api/graphql`.
   """
 
+  alias Prodigy.Server.Service.EaasySabre
   alias Prodigy.Server.Service.Sabre.SabreAirMapper
 
   require Logger
@@ -122,7 +123,7 @@ defmodule Prodigy.Server.Service.Sabre.SabreAirGqlClient do
         #{dest_text}
         #{carrier_text}
         #{f_or_d_text}
-        limit: 100) {
+        limit: #{EaasySabre.max_flights()}) {
           id
           flightNumber
           date
